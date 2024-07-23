@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
@@ -11,6 +12,8 @@ from goosebit.models import Device, Rollout
 from goosebit.settings import POLL_TIME, POLL_TIME_UPDATING
 from goosebit.telemetry import devices_count
 from goosebit.updates.artifacts import FirmwareArtifact
+
+logger = logging.getLogger(__name__)
 
 
 class UpdateManager(ABC):
@@ -179,15 +182,21 @@ class DeviceUpdateManager(UpdateManager):
         if file.is_empty():
             mode = "skip"
             self.poll_time = POLL_TIME
+            logger.info(f"Skip: no update available, device={device.uuid}")
+
         elif file.name == device.fw_version and not self.force_update:
             mode = "skip"
             self.poll_time = POLL_TIME
+            logger.info(f"Skip: device up-to-date, device={device.uuid}")
+
         elif device.last_state == "error" and not self.force_update:
             mode = "skip"
             self.poll_time = POLL_TIME
+            logger.info(f"Skip: device in error state, device={device.uuid}")
         else:
             mode = "forced"
             self.poll_time = POLL_TIME_UPDATING
+            logger.info(f"Forced: update available, device={device.uuid}")
 
             if self.update_complete:
                 self.update_complete = False

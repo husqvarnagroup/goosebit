@@ -1,10 +1,13 @@
 import json
+import logging
 
 from fastapi import APIRouter, Depends
 from fastapi.requests import Request
 
 from goosebit.settings import POLL_TIME_REGISTRATION
 from goosebit.updater.manager import UpdateManager, get_update_manager
+
+logger = logging.getLogger(__name__)
 
 # v1 is hardware revision
 router = APIRouter(prefix="/v1")
@@ -34,8 +37,10 @@ async def polling(
                 )
             )
         }
+        logger.info(f"Skip: registration required, device={updater.device.uuid}")
 
     elif last_state == "error" and not updater.force_update:
+        logger.info(f"Skip: device in error state, device={updater.device.uuid}")
         # nothing to do
         pass
 
