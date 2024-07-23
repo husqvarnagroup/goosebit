@@ -35,6 +35,8 @@ async def devices_get_all() -> list[dict]:
             "fw_file": device.fw_file,
             "hw_model": device.hw_model,
             "hw_revision": device.hw_revision,
+            "feed": device.feed,
+            "flavor": device.flavor,
             "progress": device.progress,
             "state": device.last_state,
             "force_update": manager.force_update,
