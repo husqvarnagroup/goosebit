@@ -1,7 +1,7 @@
 import json
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.requests import Request
 
 from goosebit.settings import POLL_TIME_REGISTRATION
@@ -88,6 +88,11 @@ async def deployment_base(
     updater: UpdateManager = Depends(get_update_manager),
 ):
     artifact = await updater.get_update_file()
+
+    if not artifact.file_exists():
+        logger.error(f"Artifact {artifact.file} not found")
+        raise HTTPException(404)
+
     update = await updater.get_update_mode()
     await updater.save()
 
