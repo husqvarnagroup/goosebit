@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Body, Security
+from fastapi import APIRouter, Security
 from fastapi.requests import Request
 
 from goosebit.auth import validate_user_permissions
+from goosebit.models import Firmware
 from goosebit.permissions import Permissions
 from goosebit.settings import UPDATES_DIR
-from goosebit.updater.misc import fw_sort_key
-from goosebit.updates.artifacts import FirmwareArtifact
 
 router = APIRouter(prefix="/firmware")
 
@@ -17,24 +16,16 @@ router = APIRouter(prefix="/firmware")
     ],
 )
 async def firmware_get_all() -> list[dict]:
-    UPDATES_DIR.mkdir(parents=True, exist_ok=True)
-
-    firmware = []
-    for file in sorted(
-        [f for f in UPDATES_DIR.iterdir() if f.suffix == ".swu"],
-        key=lambda x: fw_sort_key(x),
-        reverse=True,
-    ):
-        artifact = FirmwareArtifact(file.name)
-        firmware.append(
-            {
-                "name": file.name,
-                "size": artifact.path.stat().st_size,
-                "version": artifact.version,
-            }
-        )
-
-    return firmware
+    firmware_list = await Firmware.all().order_by("-created_at")
+    return [
+        {
+            "id": firmware.id,
+            "name": firmware.file,
+            "size": firmware.size,
+            "version": firmware.version,
+        }
+        for firmware in firmware_list
+    ]
 
 
 @router.post(
@@ -43,9 +34,12 @@ async def firmware_get_all() -> list[dict]:
         Security(validate_user_permissions, scopes=[Permissions.FIRMWARE.DELETE])
     ],
 )
-async def firmware_delete(request: Request, file: str = Body()) -> dict:
-    file_path = UPDATES_DIR.joinpath(file)
-    if file_path.exists():
-        file_path.unlink()
-        return {"success": True}
+async def firmware_delete(_: Request, firmware_id: int) -> dict:
+    firmware = await Firmware.get_or_none(firmware_id=firmware_id)
+    if firmware:
+        file_path = UPDATES_DIR.joinpath(firmware.file)
+        if file_path.exists():
+            file_path.unlink()
+            return {"success": True}
+
     return {"success": False}

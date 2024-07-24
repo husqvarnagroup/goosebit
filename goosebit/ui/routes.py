@@ -1,3 +1,5 @@
+import logging
+
 import aiofiles
 from fastapi import APIRouter, Depends, Form, HTTPException, Security, UploadFile
 from fastapi.requests import Request
@@ -5,12 +7,15 @@ from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer
 
 from goosebit.auth import authenticate_session, validate_user_permissions
+from goosebit.models import Firmware
 from goosebit.permissions import Permissions
 from goosebit.settings import UPDATES_DIR
 from goosebit.ui.templates import templates
-from goosebit.updater.misc import validate_filename
+from goosebit.updater.misc import parse_firmware_filename, sha1_hash_file
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/ui", dependencies=[Depends(authenticate_session)], include_in_schema=False
@@ -41,25 +46,39 @@ async def firmware_ui(request: Request):
     ],
 )
 async def upload_update(
-    request: Request,
+    _: Request,
     chunk: UploadFile = Form(...),
     init: bool = Form(...),
     done: bool = Form(...),
     filename: str = Form(...),
 ):
-    if not validate_filename(filename):
+    logging.info(f"upload_update, {filename}")
+
+    try:
+        model, revision, version = parse_firmware_filename(filename)
+    except ValueError:
         raise HTTPException(400, detail="Could not parse file data, invalid filename.")
 
     file = UPDATES_DIR.joinpath(filename)
-    tmpfile = file.with_suffix(".tmp")
+    tmp_file = file.with_suffix(".tmp")
     contents = await chunk.read()
     if init:
         file.unlink(missing_ok=True)
 
-    async with aiofiles.open(tmpfile, mode="ab") as f:
+    async with aiofiles.open(tmp_file, mode="ab") as f:
         await f.write(contents)
+
     if done:
-        tmpfile.replace(file)
+        result = tmp_file.replace(file)
+
+        await Firmware.create(
+            file=filename,
+            sha1=sha1_hash_file(result),
+            size=result.stat().st_size,
+            hw_model=model,
+            hw_revision=revision,
+            version=version,
+        )
 
 
 @router.get(

@@ -103,12 +103,12 @@ function updateFirmwareList() {
             const deleteBtn = document.createElement('button');
             deleteBtn.innerHTML =  "<i class='bi bi-trash'></i>";
             deleteBtn.classList = ["btn btn-danger"];
-            deleteBtn.onclick = function() {deleteFirmware(item["name"])};
+            deleteBtn.onclick = function() {deleteFirmware(item["id"])};
 
             const downloadBtn = document.createElement('button');
             downloadBtn.innerHTML = "<i class='bi bi-cloud-download'></i>";
             downloadBtn.classList = ["btn btn-primary"];
-            downloadBtn.onclick = function() {window.location.href = `/api/download/${item["name"]}`};
+            downloadBtn.onclick = function() {window.location.href = `/api/download/${item["id"]}`};
 
             btnGroup.appendChild(deleteBtn);
             btnGroup.appendChild(downloadBtn);
@@ -122,10 +122,10 @@ function updateFirmwareList() {
     });
 }
 
-function deleteFirmware(file) {
+function deleteFirmware(firmware_id) {
     fetch('/api/firmware/delete', {
         method: 'POST',
-        body: file,
+        body: firmware_id,
     })
     .then(response => {
         if (!response.ok) {

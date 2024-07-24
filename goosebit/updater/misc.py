@@ -8,12 +8,26 @@ from goosebit.models import Device
 from goosebit.settings import UPDATE_VERSION_PARSER, UPDATES_DIR
 
 
+def parse_firmware_filename(filename: str) -> tuple:
+    stem, extension = filename.rsplit(".")
+    if extension != "swu":
+        raise ValueError("Firmware file name must have extension swu")
+
+    image_data = stem.split("_")
+    if len(image_data) != 3:
+        raise ValueError("Firmware file name must match format model_revision_version")
+
+    model, revision, version = image_data
+    return model, revision, version
+
+
 def sha1_hash_file(file_path: Path):
     with file_path.open("rb") as f:
         sha1_hash = hashlib.file_digest(f, "sha1")
     return sha1_hash.hexdigest()
 
 
+# TODO: re-implement
 def get_newest_fw(hw_model: str, hw_revision: str) -> Optional[str]:
     def filter_filename(filename, hw_model, hw_revision) -> bool:
         image_data = filename.split("_")
@@ -49,9 +63,7 @@ async def get_device_by_uuid(dev_id: str) -> Device:
         return Device(
             uuid="unknown",
             name="Unknown",
-            fw_file="latest",
-            fw_version=None,
             last_state=None,
             last_log=None,
         )
-    return (await Device.get_or_create(uuid=dev_id))[0]
+    return await Device.get_or_none(uuid=dev_id)

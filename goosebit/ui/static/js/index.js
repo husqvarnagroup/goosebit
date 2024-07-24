@@ -17,7 +17,7 @@ document.addEventListener("DOMContentLoaded", function() {
             {
                 targets: "_all",
                 render: function(data, type, row) {
-                    return data || "❓";
+                    return data || "n/a";
                 },
             }
         ],
@@ -39,12 +39,12 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             },
             { data: 'uuid' },
-            { data: 'fw' },
+            { data: 'fw_installed_version' },
             {
                 data: 'progress',
                 render: function(data, type, row) {
                     if ( type === 'display' || type === 'filter' ) {
-                        return (data || "❓") + "%";
+                        return data ? data + "%" : "n/a";
                     }
                     return data;
                 }

@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Callable, Optional
 
-from goosebit.models import Device, Rollout
+from goosebit.models import Device, Firmware, Rollout, UpdateModeEnum
 from goosebit.settings import POLL_TIME, POLL_TIME_UPDATING
 from goosebit.telemetry import devices_count
 from goosebit.updates.artifacts import FirmwareArtifact
@@ -32,7 +32,7 @@ class UpdateManager(ABC):
     async def save(self) -> None:
         return
 
-    async def update_fw_version(self, version: str) -> None:
+    async def update_installed_firmware(self, firmware: Firmware) -> None:
         return
 
     async def update_hw_model(self, hw_model: str) -> None:
@@ -86,10 +86,10 @@ class UpdateManager(ABC):
             await cb(log_data)
 
     @abstractmethod
-    async def get_update_file(self) -> FirmwareArtifact: ...
+    async def get_update_firmware(self) -> FirmwareArtifact: ...
 
     @abstractmethod
-    async def get_update_mode(self) -> str: ...
+    async def get_update(self) -> tuple: ...
 
     @abstractmethod
     async def update_log(self, log_data: str) -> None: ...
@@ -100,10 +100,11 @@ class UnknownUpdateManager(UpdateManager):
         super().__init__(dev_id)
         self.poll_time = POLL_TIME_UPDATING
 
-    async def get_update_file(self) -> FirmwareArtifact:
-        return FirmwareArtifact("latest")
+    async def get_update_firmware(self) -> Firmware:
+        # TODO
+        return None
 
-    async def get_update_mode(self) -> str:
+    async def get_update(self) -> tuple:
         return "forced"
 
     async def update_log(self, log_data: str) -> None:
@@ -112,17 +113,16 @@ class UnknownUpdateManager(UpdateManager):
 
 class DeviceUpdateManager(UpdateManager):
     async def get_device(self) -> Device:
-        if self.device:
-            return self.device
-        self.device = (await Device.get_or_create(uuid=self.dev_id))[0]
+        if not self.device:
+            self.device = (await Device.get_or_create(uuid=self.dev_id))[0]
         return self.device
 
     async def save(self) -> None:
         await self.device.save()
 
-    async def update_fw_version(self, version: str) -> None:
+    async def update_installed_firmware(self, firmware: Firmware) -> None:
         device = await self.get_device()
-        device.fw_version = version
+        device.installed_firmware = firmware
 
     async def update_hw_model(self, hw_model: str) -> None:
         device = await self.get_device()
@@ -150,11 +150,11 @@ class DeviceUpdateManager(UpdateManager):
     async def get_rollout(self) -> Optional[Rollout]:
         device = await self.get_device()
 
-        if device.fw_file == "none":
+        if device.update_mode == UpdateModeEnum.ROLLOUT:
             return (
                 await Rollout.filter(
-                    hw_model=device.hw_model,
-                    hw_revision=device.hw_revision,
+                    firmware__hw_model=device.hw_model,
+                    firmware__hw_revision=device.hw_revision,
                     feed=device.feed,
                     flavor=device.flavor,
                 )
@@ -164,27 +164,35 @@ class DeviceUpdateManager(UpdateManager):
 
         return None
 
-    async def get_update_file(self) -> FirmwareArtifact:
+    async def get_update_firmware(self) -> Optional[Firmware]:
         device = await self.get_device()
-        file = device.fw_file
 
-        if file == "none":
+        if device.update_mode == UpdateModeEnum.ROLLOUT:
             rollout = await self.get_rollout()
             if rollout and not rollout.paused:
-                file = rollout.fw_file
+                await rollout.fetch_related("firmware")
+                return rollout.firmware
 
-        return FirmwareArtifact(file, device.hw_model, device.hw_revision)
+        if device.update_mode == UpdateModeEnum.ASSIGNED:
+            await device.fetch_related("assigned_firmware")
+            return device.assigned_firmware
 
-    async def get_update_mode(self) -> str:
+        if device.update_mode == UpdateModeEnum.LATEST:
+            # TODO
+            return None
+
+        return None
+
+    async def get_update(self) -> tuple:
         device = await self.get_device()
 
-        file = await self.get_update_file()
-        if file.is_empty():
+        firmware = await self.get_update_firmware()
+        if firmware is None:
             mode = "skip"
             self.poll_time = POLL_TIME
             logger.info(f"Skip: no update available, device={device.uuid}")
 
-        elif file.name == device.fw_version and not self.force_update:
+        elif device.installed_firmware == firmware and not self.force_update:
             mode = "skip"
             self.poll_time = POLL_TIME
             logger.info(f"Skip: device up-to-date, device={device.uuid}")
@@ -202,7 +210,7 @@ class DeviceUpdateManager(UpdateManager):
                 self.update_complete = False
                 await self.clear_log()
 
-        return mode
+        return mode, firmware
 
     async def update_log(self, log_data: str) -> None:
         if log_data is None:

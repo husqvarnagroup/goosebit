@@ -8,7 +8,7 @@ from fastapi.requests import Request
 from pydantic import BaseModel
 
 from goosebit.auth import validate_user_permissions
-from goosebit.models import Device
+from goosebit.models import Device, UpdateModeEnum
 from goosebit.permissions import Permissions
 from goosebit.updater.manager import delete_device, get_update_manager
 from goosebit.updater.misc import get_device_by_uuid
@@ -21,7 +21,9 @@ router = APIRouter(prefix="/devices")
     dependencies=[Security(validate_user_permissions, scopes=[Permissions.HOME.READ])],
 )
 async def devices_get_all() -> list[dict]:
-    devices = await Device.all()
+    devices = await Device.all().prefetch_related(
+        "assigned_firmware", "installed_firmware"
+    )
 
     async def parse(device: Device) -> dict:
         manager = await get_update_manager(device.uuid)
@@ -31,14 +33,23 @@ async def devices_get_all() -> list[dict]:
         return {
             "uuid": device.uuid,
             "name": device.name,
-            "fw": device.fw_version,
-            "fw_file": device.fw_file,
+            "fw_installed_version": (
+                device.installed_firmware.version
+                if device.installed_firmware is not None
+                else None
+            ),
+            "fw_file": (
+                device.assigned_firmware.file
+                if device.assigned_firmware is not None
+                else None
+            ),
             "hw_model": device.hw_model,
             "hw_revision": device.hw_revision,
             "feed": device.feed,
             "flavor": device.flavor,
             "progress": device.progress,
             "state": device.last_state,
+            "update_mode": str(device.update_mode),
             "force_update": manager.force_update,
             "last_ip": device.last_ip,
             "last_seen": last_seen,
@@ -54,6 +65,7 @@ class UpdateDevicesModel(BaseModel):
     devices: list[str]
     firmware: str | None = None
     name: str | None = None
+    pinned: bool = False
 
 
 @router.post(
@@ -66,8 +78,19 @@ async def devices_update(request: Request, config: UpdateDevicesModel) -> dict:
     for uuid in config.devices:
         updater = await get_update_manager(uuid)
         device = await updater.get_device()
-        if config.firmware is not None:
-            device.fw_file = config.firmware
+        if config.firmware:
+            if config.firmware == "rollout":
+                device.update_mode = UpdateModeEnum.ROLLOUT
+                device.assigned_firmware_id = None
+            elif config.firmware == "latest":
+                device.update_mode = UpdateModeEnum.LATEST
+                device.assigned_firmware_id = None
+            else:
+                device.update_mode = UpdateModeEnum.ASSIGNED
+                device.assigned_firmware_id = config.firmware
+        if config.pinned:
+            device.update_mode = UpdateModeEnum.PINNED
+            device.assigned_firmware_id = None
         if config.name is not None:
             device.name = config.name
         await updater.save()

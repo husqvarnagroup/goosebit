@@ -4,7 +4,8 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.requests import Request
 
-from goosebit.settings import POLL_TIME_REGISTRATION
+from goosebit.models import Firmware
+from goosebit.settings import POLL_TIME_REGISTRATION, UPDATES_DIR
 from goosebit.updater.manager import UpdateManager, get_update_manager
 
 logger = logging.getLogger(__name__)
@@ -47,15 +48,15 @@ async def polling(
     else:
         # provide update if available. Note: this is also required while in state "running", otherwise swupdate
         # won't confirm a successful testing (might be a bug/problem in swupdate)
-        update = await updater.get_update_mode()
-        if update != "skip":
+        update_mode, firmware = await updater.get_update()
+        if update_mode != "skip":
             links["deploymentBase"] = {
                 "href": str(
                     request.url_for(
                         "deployment_base",
                         tenant=tenant,
                         dev_id=dev_id,
-                        action_id=1,
+                        action_id=firmware.id,
                     )
                 )
             }
@@ -87,21 +88,21 @@ async def deployment_base(
     action_id: int,
     updater: UpdateManager = Depends(get_update_manager),
 ):
-    artifact = await updater.get_update_file()
 
-    if not artifact.file_exists():
-        logger.error(f"Artifact {artifact.file} not found")
+    update_mode, firmware = await updater.get_update()
+
+    if not UPDATES_DIR.joinpath(firmware.file).exists():
+        logger.error(f"Artifact {firmware.file} not found")
         raise HTTPException(404)
 
-    update = await updater.get_update_mode()
     await updater.save()
 
     return {
         "id": f"{action_id}",
         "deployment": {
-            "download": update,
-            "update": update,
-            "chunks": artifact.generate_chunk(request, tenant=tenant, dev_id=dev_id),
+            "download": update_mode,
+            "update": update_mode,
+            "chunks": generate_chunk(firmware, request, tenant=tenant, dev_id=dev_id),
         },
     }
 
@@ -130,6 +131,8 @@ async def deployment_feedback(
             updater.force_update = False
             updater.update_complete = True
 
+            reported_firmware = await Firmware.get_or_none(id=data["id"])
+
             # From hawkBit docu: DDI defines also a status NONE which will not be interpreted by the update server
             # and handled like SUCCESS.
             if state == "success" or state == "none":
@@ -138,17 +141,18 @@ async def deployment_feedback(
                 # not guaranteed to be the correct rollout - see next comment.
                 rollout = await updater.get_rollout()
                 if rollout:
-                    file = rollout.fw_file
-                    rollout.success_count += 1
-                    await rollout.save()
-                else:
-                    device = await updater.get_device()
-                    file = device.fw_file
+                    if rollout.firmware == reported_firmware:
+                        rollout.success_count += 1
+                        await rollout.save()
+                    else:
+                        logging.warning(
+                            f"Updating rollout success statistics failed, firmware={reported_firmware}"
+                        )
 
                 # setting the currently installed version based on the current assigned firmware / existing rollouts
                 # is problematic. Better to assign custom action_id for each update (rollout id? firmware id? new id?).
                 # Alternatively - but requires customization on the gateway side - use version reported by the gateway.
-                await updater.update_fw_version(file)
+                await updater.update_installed_firmware(reported_firmware)
 
             elif state == "failure":
                 await updater.update_device_state("error")
@@ -156,8 +160,13 @@ async def deployment_feedback(
                 # not guaranteed to be the correct rollout - see comment above.
                 rollout = await updater.get_rollout()
                 if rollout:
-                    rollout.failure_count += 1
-                    await rollout.save()
+                    if rollout.firmware == reported_firmware:
+                        rollout.failure_count += 1
+                        await rollout.save()
+                    else:
+                        logging.warning(
+                            f"Updating rollout failure statistics failed, firmware={reported_firmware}"
+                        )
 
     except KeyError:
         pass
@@ -170,3 +179,32 @@ async def deployment_feedback(
 
     await updater.save()
     return {"id": str(action_id)}
+
+
+def generate_chunk(firmware, request: Request, tenant: str, dev_id: str) -> list:
+    return [
+        {
+            "part": "os",
+            "version": "1",
+            "name": firmware.file,
+            "artifacts": [
+                {
+                    "filename": firmware.file,
+                    "hashes": {"sha1": firmware.sha1},
+                    "size": firmware.size,
+                    "_links": {
+                        "download": {
+                            "href": str(
+                                request.url_for(
+                                    "download_file",
+                                    tenant=tenant,
+                                    dev_id=dev_id,
+                                    firmware_id=firmware.id,
+                                )
+                            )
+                        }
+                    },
+                }
+            ],
+        }
+    ]

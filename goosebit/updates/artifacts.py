@@ -53,35 +53,3 @@ class FirmwareArtifact:
     def path(self) -> Optional[Path]:
         if not self.is_empty():
             return UPDATES_DIR.joinpath(self.file)
-
-    @property
-    def dl_endpoint(self):
-        return "download_file"
-
-    def generate_chunk(self, request: Request, tenant: str, dev_id: str) -> list:
-        return [
-            {
-                "part": "os",
-                "version": "1",
-                "name": self.file,
-                "artifacts": [
-                    {
-                        "filename": self.file,
-                        "hashes": {"sha1": sha1_hash_file(self.path)},
-                        "size": self.path.stat().st_size,
-                        "_links": {
-                            "download": {
-                                "href": str(
-                                    request.url_for(
-                                        self.dl_endpoint,
-                                        tenant=tenant,
-                                        dev_id=dev_id,
-                                        file=self.file,
-                                    )
-                                )
-                            }
-                        },
-                    }
-                ],
-            }
-        ]

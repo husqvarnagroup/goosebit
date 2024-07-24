@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", function() {
             {
                 targets: "_all",
                 render: function(data, type, row) {
-                    return data || "❓";
+                    return data || "n/a";
                 },
             }
         ],
@@ -44,7 +44,8 @@ document.addEventListener("DOMContentLoaded", function() {
             { data: 'hw_revision' },
             { data: 'feed' },
             { data: 'flavor' },
-            { data: 'fw' },
+            { data: 'fw_installed_version' },
+            { data: 'update_mode' },
             {
                 data: 'force_update',
                 render: function(data, type, row) {
@@ -64,7 +65,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 data: 'progress',
                 render: function(data, type, row) {
                     if ( type === 'display' || type === 'filter' ) {
-                        return (data || "❓") + "%";
+                        return data ? data + "%" : "n/a";
                     }
                     return data;
                 }
@@ -225,8 +226,8 @@ function updateFirmwareSelection() {
         selectElem = document.getElementById("device-selected-fw");
 
         optionElem = document.createElement("option");
-        optionElem.value = "none";
-        optionElem.textContent = "none";
+        optionElem.value = "rollout";
+        optionElem.textContent = "rollout";
         selectElem.appendChild(optionElem);
 
         optionElem = document.createElement("option");
@@ -236,7 +237,7 @@ function updateFirmwareSelection() {
 
         data.forEach(item => {
             optionElem = document.createElement("option");
-            optionElem.value = item["name"];
+            optionElem.value = item["id"];
             optionElem.textContent = item["name"];
             selectElem.appendChild(optionElem);
         });
@@ -347,7 +348,7 @@ function pinDevices(devices) {
          },
         body: JSON.stringify({
             'devices': devices,
-            'firmware': "pinned"
+            'pinned': true
         })
     }).then(response => {
         if (!response.ok) {
