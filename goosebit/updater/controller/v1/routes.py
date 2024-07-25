@@ -92,7 +92,7 @@ async def deployment_base(
     update_mode, firmware = await updater.get_update()
 
     if not UPDATES_DIR.joinpath(firmware.file).exists():
-        logger.error(f"Artifact {firmware.file} not found")
+        logger.error(f"Artifact {firmware.file} not found in {UPDATES_DIR}")
         raise HTTPException(404)
 
     await updater.save()
