@@ -37,11 +37,9 @@ class Rollout(Model):
     id = fields.IntField(primary_key=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     name = fields.CharField(max_length=255, null=True)
-    hw_model = fields.CharField(max_length=255, default="default")
-    hw_revision = fields.CharField(max_length=255, default="default")
     feed = fields.CharField(max_length=255, default="default")
     flavor = fields.CharField(max_length=255, default="default")
-    fw_file = fields.CharField(max_length=255)
+    firmware = fields.ForeignKeyField("models.FirmwareUpdate", related_name="rollouts")
     paused = fields.BooleanField(default=False)
     success_count = fields.IntField(default=0)
     failure_count = fields.IntField(default=0)
@@ -66,13 +64,18 @@ class FirmwareUpdate(Model):
     )
 
     @classmethod
-    async def latest(cls):
-        updates = await cls.all()
-        return sorted(
+    async def latest(cls, device):
+        compatibility = await FirmwareCompatibility.get_or_none(
+            hw_model=device.hw_model, hw_revision=device.hw_revision
+        )
+        updates = await FirmwareUpdate.filter(compatibility=compatibility)
+
+        firmwares = sorted(
             updates,
             key=lambda x: semver.Version.parse(x.version),
             reverse=True,
-        )[0]
+        )
+        return firmwares[0] if len(firmwares) > 0 else None
 
     @property
     def path(self):
@@ -100,7 +103,7 @@ class FirmwareUpdate(Model):
                 "artifacts": [
                     {
                         "filename": self.path.name,
-                        "hashes": {"sha1": self.size},
+                        "hashes": {"sha1": self.hash},
                         "size": self.size,
                         "_links": {"download": {"href": href}},
                     }

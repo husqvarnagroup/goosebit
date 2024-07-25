@@ -147,16 +147,13 @@ class DeviceUpdateManager(UpdateManager):
         device = await self.get_device()
 
         if device.fw_file == "none":
-            return (
-                await Rollout.filter(
-                    hw_model=device.hw_model,
-                    hw_revision=device.hw_revision,
-                    feed=device.feed,
-                    flavor=device.flavor,
-                )
-                .order_by("-created_at")
-                .first()
+            rollouts = Rollout.filter(
+                firmware__compatibility__hw_model=device.hw_model,
+                firmware__compatibility__hw_revision=device.hw_revision,
+                feed=device.feed,
+                flavor=device.flavor,
             )
+            return await rollouts.order_by("-created_at").first()
 
         return None
 
@@ -167,28 +164,29 @@ class DeviceUpdateManager(UpdateManager):
         if file == "none":
             rollout = await self.get_rollout()
             if rollout and not rollout.paused:
-                file = rollout.fw_file
+                await rollout.fetch_related("firmware")
+                return rollout.firmware
 
         if file == "latest":
-            return await FirmwareUpdate.latest()
-        if file == "pinned":
-            return await FirmwareUpdate.get(
-                uri=UPDATES_DIR.joinpath(device.fw_file).absolute().as_uri()
-            )
+            return await FirmwareUpdate.latest(device)
 
-        compat = FirmwareCompatibility.get(
-            hw_model=device.hw_model, hw_revision=device.hw_revision
-        )
-        return await FirmwareUpdate.get(
+        if file == "pinned":
+            return None
+
+        return await FirmwareUpdate.filter(
             uri=UPDATES_DIR.joinpath(device.fw_file).absolute().as_uri(),
-            compatibility=compat,
-        )
+            compatibility__hw_model=device.hw_model,
+            compatibility__hw_revision=device.hw_revision,
+        ).first()
 
     async def get_update_mode(self) -> str:
         device = await self.get_device()
 
         file = await self.get_update_file()
-        if file.path.name.split(".")[0] == device.fw_version and not self.force_update:
+        if file is None:
+            mode = "skip"
+            self.poll_time = POLL_TIME
+        elif file.version == device.fw_version and not self.force_update:
             mode = "skip"
             self.poll_time = POLL_TIME
         elif device.last_state == "error" and not self.force_update:
