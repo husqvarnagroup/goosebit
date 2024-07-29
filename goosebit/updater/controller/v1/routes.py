@@ -24,9 +24,9 @@ async def polling(
     links = {}
 
     sleep = updater.poll_time
-    last_state = updater.device.last_state
+    device = await updater.get_device()
 
-    if last_state == UpdateStateEnum.UNKNOWN:
+    if device.last_state == UpdateStateEnum.UNKNOWN:
         # device registration
         sleep = POLL_TIME_REGISTRATION
         links["configData"] = {
@@ -38,10 +38,10 @@ async def polling(
                 )
             )
         }
-        logger.info(f"Skip: registration required, device={updater.device.uuid}")
+        logger.info(f"Skip: registration required, device={device.uuid}")
 
-    elif last_state == UpdateStateEnum.ERROR and not updater.force_update:
-        logger.warning(f"Skip: device in error state, device={updater.device.uuid}")
+    elif device.last_state == UpdateStateEnum.ERROR and not device.force_update:
+        logger.warning(f"Skip: device in error state, device={device.uuid}")
         pass
 
     else:
@@ -128,7 +128,7 @@ async def deployment_feedback(
         elif execution == "closed":
             state = data["status"]["result"]["finished"]
 
-            updater.force_update = False
+            await updater.update_force_update(False)
             updater.update_complete = True
 
             reported_firmware = await Firmware.get_or_none(id=data["id"])
