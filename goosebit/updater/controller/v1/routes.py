@@ -59,7 +59,7 @@ async def polling(
                     )
                 )
             }
-            logger.info(f"Forced: update available, device={updater.device.uuid}")
+            logger.info(f"Forced: update available, device={device.uuid}")
 
     return {
         "config": {"polling": {"sleep": sleep}},
@@ -77,7 +77,7 @@ async def config_data(
     data = await request.json()
     # TODO: make standard schema to deal with this
     await updater.update_config_data(**data["data"])
-    logger.info(f"Updating config data, device={updater.device.uuid}")
+    logger.info(f"Updating config data, device={updater.dev_id}")
     return {"success": True, "message": "Updated swupdate data."}
 
 
@@ -91,7 +91,7 @@ async def deployment_base(
 ):
     handling_type, firmware = await updater.get_update()
 
-    logger.info(f"Request deployment base, device={updater.device.uuid}")
+    logger.info(f"Request deployment base, device={updater.dev_id}")
 
     return {
         "id": f"{action_id}",
@@ -107,7 +107,6 @@ async def deployment_base(
 async def deployment_feedback(
     request: Request,
     tenant: str,
-    dev_id: str,
     action_id: int,
     updater: UpdateManager = Depends(get_update_manager),
 ):
@@ -115,7 +114,7 @@ async def deployment_feedback(
         data = await request.json()
     except json.JSONDecodeError as e:
         logging.warning(
-            f"Parsing deployment feedback failed, error={e}, device={dev_id}"
+            f"Parsing deployment feedback failed, error={e}, device={updater.dev_id}"
         )
         return
     try:
@@ -123,7 +122,7 @@ async def deployment_feedback(
 
         if execution == "proceeding":
             await updater.update_device_state(UpdateStateEnum.RUNNING)
-            logger.debug(f"Installation in progress, device={updater.device.uuid}")
+            logger.debug(f"Installation in progress, device={updater.dev_id}")
 
         elif execution == "closed":
             state = data["status"]["result"]["finished"]
@@ -146,7 +145,7 @@ async def deployment_feedback(
                         await rollout.save()
                     else:
                         logging.warning(
-                            f"Updating rollout success stats failed, firmware={reported_firmware.id}, device={dev_id}"
+                            f"Updating rollout success stats failed, firmware={reported_firmware.id}, device={updater.dev_id}"
                         )
 
                 # setting the currently installed version based on the current assigned firmware / existing rollouts
@@ -154,7 +153,7 @@ async def deployment_feedback(
                 # Alternatively - but requires customization on the gateway side - use version reported by the gateway.
                 await updater.update_fw_version(reported_firmware.version)
                 logger.debug(
-                    f"Installation successful, firmware={reported_firmware.version}, device={updater.device.uuid}"
+                    f"Installation successful, firmware={reported_firmware.version}, device={updater.dev_id}"
                 )
 
             elif state == "failure":
@@ -168,22 +167,22 @@ async def deployment_feedback(
                         await rollout.save()
                     else:
                         logging.warning(
-                            f"Updating rollout failure stats failed, firmware={reported_firmware.id}, device={dev_id}"
+                            f"Updating rollout failure stats failed, firmware={reported_firmware.id}, device={updater.dev_id}"
                         )
 
                 logger.debug(
-                    f"Installation failed, firmware={reported_firmware.version}, device={updater.device.uuid}"
+                    f"Installation failed, firmware={reported_firmware.version}, device={updater.dev_id}"
                 )
 
     except KeyError as e:
         logging.warning(
-            f"Processing deployment feedback failed, error={e}, device={dev_id}"
+            f"Processing deployment feedback failed, error={e}, device={updater.dev_id}"
         )
 
     try:
         log = data["status"]["details"]
         await updater.update_log("\n".join(log))
     except KeyError:
-        logging.warning(f"No details to update update log, device={dev_id}")
+        logging.warning(f"No details to update update log, device={updater.dev_id}")
 
     return {"id": str(action_id)}
