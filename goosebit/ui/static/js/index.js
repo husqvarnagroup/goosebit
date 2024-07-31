@@ -10,6 +10,15 @@ document.addEventListener("DOMContentLoaded", () => {
         scroller: true,
         scrollY: "65vh",
         stateSave: true,
+        stateLoadParams: (settings, data) => {
+            // if save state is older than last breaking code change...
+            if (data.time <= 1722413406000) {
+                // ... delete it
+                for (const key of Object.keys(data)) {
+                    delete data[key];
+                }
+            }
+        },
         ajax: {
             url: "/api/devices/all",
             contentType: "application/json",
