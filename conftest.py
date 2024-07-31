@@ -3,6 +3,7 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from tortoise import Tortoise
@@ -22,6 +23,11 @@ TORTOISE_CONF = {
         },
     },
 }
+
+
+@pytest.fixture(autouse=True)
+def set_env_vars():
+    os.environ["AIOCACHE_DISABLE"] = "1"
 
 
 @pytest_asyncio.fixture(scope="module")
