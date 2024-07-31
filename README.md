@@ -17,7 +17,7 @@ The default login credentials for testing are `admin@goosebit.local`, `admin`.
 
 ## Assumptions
 
-- [SWUpdate](https://swupdate.org) used on device side.
+-   [SWUpdate](https://swupdate.org) used on device side.
 
 ## Current Feature Set
 
@@ -57,3 +57,48 @@ Device can be pinned to its current firmware.
 ### Realtime update logs
 
 While an update is running, the update logs are captured and visualized in the frontend.
+
+## Development
+
+### Code formatting and linting
+
+Code is formatted using different tools
+
+-   black and isort for `*.py`
+-   biomejs for `*.js`, `*.json`
+-   prettier for `*.html`, `*.md`, `*.yml`, `*.yaml`
+
+To run the formatters manually
+
+```bash
+poetry run black .
+poetry run isort .
+npx @biomejs/biome format .
+npx prettier . --write
+```
+
+Code is linted using different tools as well
+
+-   flake8 for `*.py`
+-   biomejs for `*.js`
+
+To run the linters manually
+
+```bash
+poetry run flake8 .
+npx @biomejs/biome check .
+```
+
+Best to have pre-commit install git hooks that run all those tools before a commit
+
+```bash
+poetry run pre-commit install
+```
+
+### Testing
+
+Tests are implemented using pytest. To run all tests
+
+```bash
+poetry run pytest
+```
