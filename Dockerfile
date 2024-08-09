@@ -2,13 +2,13 @@ FROM python:3.12.4-alpine
 
 ARG GOOSEBIT_VERSION
 
-#RUN pip install --no-cache-dir goosebit[postgresql]==$GOOSEBIT_VERSION
+RUN pip install --no-cache-dir goosebit[postgresql]==$GOOSEBIT_VERSION
 
-COPY . /tmp/src
-RUN cd /tmp/src && \
-    pip install --no-cache-dir .[postgresql] && \
-    cd - && \
-    rm -rf /tmp/src
+# COPY . /tmp/src
+# RUN cd /tmp/src && \
+#     pip install --no-cache-dir .[postgresql] && \
+#     cd - && \
+#     rm -rf /tmp/src
 
 VOLUME /artifacts
 

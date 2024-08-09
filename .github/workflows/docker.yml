@@ -19,12 +19,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set GOOSEBIT_VERSION env var
+        run: |
+          if [ $GITHUB_REF_TYPE = tag ]; then
+            tag=$GITHUB_REF_NAME
+          else
+            tag=v0.1.2
+          fi
+          echo "GOOSEBIT_VERSION=${tag#v}" >> $GITHUB_ENV
+
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@v6.6.1
         with:
           context: .
-          build-args: GOOSEBIT_VERSION=0.1.2
+          build-args: GOOSEBIT_VERSION=${{ env.GOOSEBIT_VERSION }}
           file: ./Dockerfile
           push: false
           # tags: ${{ steps.meta.outputs.tags }}
