@@ -1,0 +1,33 @@
+name: Docker
+
+# on:
+#   workflow_run:
+#     workflows: ["PyPI"]
+#     types:
+#       - completed
+
+on:
+  push:
+    branches:
+      - "gardena/eb/ci"
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          # tags: ${{ steps.meta.outputs.tags }}
+          # labels: ${{ steps.meta.outputs.labels }}
+
+      # - name: Deploy website
+      #   run: poetry run mkdocs gh-deploy
