@@ -18,6 +18,9 @@ router = APIRouter(prefix="/ui", dependencies=[Depends(authenticate_session)], i
 
 @router.get("/")
 async def ui_root(request: Request):
+    from remote_pdb import RemotePdb
+    RemotePdb('0.0.0.0', 4444).set_trace()
+    print(f"DBG: home_ui: {request.url_for('home_ui')}")
     return RedirectResponse(request.url_for("home_ui"))
 
 

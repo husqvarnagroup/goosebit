@@ -8,6 +8,7 @@ RUN apk add --no-cache git && pip install --no-cache-dir git+https://github.com/
 
 COPY . /tmp/src
 RUN cd /tmp/src && \
+    pip install --no-cache-dir remote-pdb && \
     pip install --no-cache-dir .[postgresql] && \
     cd - && \
     rm -rf /tmp/src
