@@ -36,6 +36,14 @@ Instrumentor.instrument_app(app)
 
 
 @app.middleware("http")
+async def print_headers(request: Request, call_next):
+    import pprint
+    print("DBG:")
+    pprint.pp(request.headers)
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def attach_user(request: Request, call_next):
     request.scope["user"] = get_current_user(request)
     return await call_next(request)
