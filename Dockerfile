@@ -4,6 +4,8 @@ ARG GOOSEBIT_VERSION
 
 #RUN pip install --no-cache-dir goosebit[postgresql]==$GOOSEBIT_VERSION
 
+RUN apk add --no-cache git && pip install --no-cache-dir git+https://github.com/husqvarnagroup/uvicorn.git@gardena/eb/proxy_headers
+
 COPY . /tmp/src
 RUN cd /tmp/src && \
     pip install --no-cache-dir .[postgresql] && \
