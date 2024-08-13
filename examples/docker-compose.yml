@@ -27,8 +27,6 @@ services:
       GOOSEBIT_USERS: >-
         [{email="admin@goosebit.local", password="admin", permissions="*"}]
       GOOSEBIT_ARTIFACTS_DIR: /artifacts
-    ports:
-      - "8080:8080"
     volumes:
       - artifacts:/artifacts
     depends_on:
