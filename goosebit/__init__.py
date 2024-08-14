@@ -36,10 +36,10 @@ Instrumentor.instrument_app(app)
 
 
 @app.middleware("http")
-async def print_headers(request: Request, call_next):
-    import pprint
-    print("DBG:")
-    pprint.pp(request.headers)
+async def print_request(request: Request, call_next):
+    import pprint, sys
+    sys.stdout.write("DBG: request: ")
+    pprint.pp(request)
     return await call_next(request)
 
 
@@ -51,6 +51,7 @@ async def attach_user(request: Request, call_next):
 
 @app.get("/", include_in_schema=False)
 def root_redirect(request: Request):
+    print(f"DBG: ui_root: {request.url_for('ui_root')}")
     return RedirectResponse(request.url_for("ui_root"))
 
 
