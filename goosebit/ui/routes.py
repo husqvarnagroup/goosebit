@@ -16,7 +16,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 router = APIRouter(prefix="/ui", dependencies=[Depends(authenticate_session)], include_in_schema=False)
 
 
-@router.get("/")
+@router.get("")
 async def ui_root(request: Request):
     print(f"DBG: home_ui: {request.url_for('home_ui')}")
     return RedirectResponse(request.url_for("home_ui"))
