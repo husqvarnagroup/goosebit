@@ -16,6 +16,7 @@ from tortoise.exceptions import ValidationError
 from goosebit import api, db, realtime, ui, updater
 from goosebit.api.telemetry import metrics
 from goosebit.auth import get_user_from_request, login_user, redirect_if_authenticated
+from goosebit.forwarded_header_middleware import ForwardedHeaderMiddleware
 from goosebit.settings import config
 from goosebit.ui.nav import nav
 from goosebit.ui.static import static
@@ -60,6 +61,8 @@ app.include_router(api.router)
 app.include_router(realtime.router)
 app.mount("/static", static, name="static")
 Instrumentor.instrument_app(app)
+
+app.add_middleware(ForwardedHeaderMiddleware)
 
 
 # Custom exception handler for Tortoise ValidationError
