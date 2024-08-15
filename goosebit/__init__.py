@@ -14,6 +14,7 @@ from goosebit.auth import (
     create_session,
     get_current_user,
 )
+from goosebit.forwarded_header_middleware import ForwardedHeaderMiddleware
 from goosebit.ui.nav import nav
 from goosebit.ui.static import static
 from goosebit.ui.templates import templates
@@ -34,6 +35,8 @@ app.include_router(api.router)
 app.include_router(realtime.router)
 app.mount("/static", static, name="static")
 Instrumentor.instrument_app(app)
+
+app.add_middleware(ForwardedHeaderMiddleware)
 
 
 @app.middleware("http")
