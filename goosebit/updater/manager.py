@@ -47,6 +47,9 @@ class UpdateManager(ABC):
     async def get_device(self) -> Device | None:
         return None
 
+    async def update_auth_token(self, auth_token: str) -> None:
+        return
+
     async def update_force_update(self, force_update: bool) -> None:
         return
 
@@ -157,6 +160,11 @@ class DeviceUpdateManager(UpdateManager):
         # only update cache after a successful database save
         result = await caches.get("default").set(self.dev_id, device, ttl=600)
         assert result, "device being cached"
+
+    async def update_auth_token(self, auth_token: str) -> None:
+        device = await self.get_device()
+        device.auth_token = auth_token
+        await self.save_device(device, update_fields=["auth_token"])
 
     async def update_force_update(self, force_update: bool) -> None:
         device = await self.get_device()

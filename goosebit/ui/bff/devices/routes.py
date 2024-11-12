@@ -79,6 +79,8 @@ async def devices_patch(_: Request, config: DevicesPatchRequest) -> StatusRespon
             await updater.update_feed(config.feed)
         if config.force_update is not None:
             await updater.update_force_update(config.force_update)
+        if config.auth_token is not None:
+            await updater.update_auth_token(config.auth_token)
     return StatusResponse(success=True)
 
 
