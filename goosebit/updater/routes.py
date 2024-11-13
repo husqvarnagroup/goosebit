@@ -3,7 +3,6 @@ import time
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.requests import Request
 
-from goosebit.settings import config
 from goosebit.settings.schema import DeviceAuthMode
 
 from ..db import Device
@@ -13,14 +12,14 @@ from .manager import get_update_manager
 
 async def log_last_connection(request: Request, dev_id: str):
     updater = await get_update_manager(dev_id)
-    if config.track_device_ip:
+    if request.scope["config"].track_device_ip:
         await updater.update_last_connection(round(time.time()), request.client.host)
     else:
         await updater.update_last_connection(round(time.time()))
 
 
 async def validate_device_token(request: Request, dev_id: str):
-    if not config.device_auth.enable:
+    if not request.scope["config"].device_auth.enable:
         return
 
     # parse device token, needs to be the `TargetToken`
@@ -33,13 +32,13 @@ async def validate_device_token(request: Request, dev_id: str):
 
     updater = await get_update_manager(dev_id)
     # setup mode should register devices and set up their auth token
-    if config.device_auth.mode == DeviceAuthMode.SETUP:
+    if request.scope["config"].device_auth.mode == DeviceAuthMode.SETUP:
         if device_token is None:
             return
         await updater.update_auth_token(device_token)
 
     # lax mode should register devices and check their token if they have one, but not register their tokens
-    elif config.device_auth.mode == DeviceAuthMode.LAX:
+    elif request.scope["config"].device_auth.mode == DeviceAuthMode.LAX:
         device = await updater.get_device()
 
         # should not be possible
@@ -49,7 +48,7 @@ async def validate_device_token(request: Request, dev_id: str):
             raise HTTPException(401, "Device authentication token does not match.")
 
     # strict mode should ensure all device are already set up and have a token, then check the token
-    elif config.device_auth.mode == DeviceAuthMode.STRICT:
+    elif request.scope["config"].device_auth.mode == DeviceAuthMode.STRICT:
         if device_token is None:
             raise HTTPException(401, "Device authentication token is required in strict mode.")
         # do not create a device in strict mode

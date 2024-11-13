@@ -31,7 +31,7 @@ async def clear_cache():
     yield
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture(scope="function")
 async def test_app():
     async with RegisterTortoise(
         app=app,
@@ -40,7 +40,7 @@ async def test_app():
         yield app
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture(scope="function")
 async def async_client(test_app):
     async with AsyncClient(
         transport=ASGITransport(app=test_app), base_url="http://test", follow_redirects=True
@@ -118,6 +118,9 @@ async def test_data(db):
             hardware=hardware,
         )
 
+        device_authentication = await Device.create(uuid="device3", auth_token="auth_token1", hardware=hardware)
+        device_no_authentication = await Device.create(uuid="device4", hardware=hardware)
+
         yield dict(
             hardware=hardware,
             software_release=software_release,
@@ -126,4 +129,6 @@ async def test_data(db):
             rollout_default=rollout_default,
             device_rollout=device_rollout,
             device_assigned=device_assigned,
+            device_authentication=device_authentication,
+            device_no_authentication=device_no_authentication,
         )
