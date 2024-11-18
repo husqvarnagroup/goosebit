@@ -87,12 +87,6 @@ async def attach_nav(request: Request, call_next):
     return await call_next(request)
 
 
-@app.middleware("http")
-async def attach_config(request: Request, call_next):
-    request.scope["config"] = config
-    return await call_next(request)
-
-
 @app.get("/", include_in_schema=False)
 def root_redirect(request: Request):
     return RedirectResponse(request.url_for("ui_root"))

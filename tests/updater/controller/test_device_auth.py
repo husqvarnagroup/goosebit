@@ -1,12 +1,6 @@
 import pytest
-import pytest_asyncio
-from fastapi.requests import Request
-from httpx import ASGITransport, AsyncClient
-from tortoise.contrib.fastapi import RegisterTortoise
 
-import goosebit
-from conftest import TORTOISE_CONF
-from goosebit import app
+from goosebit.settings import config
 from goosebit.settings.schema import DeviceAuthMode
 
 
@@ -26,163 +20,132 @@ async def _api_device_update(device_auth_async_client, device, update_attribute,
 
 
 @pytest.mark.asyncio
-class TestDeviceAuth:
-    config = goosebit.settings.config
+async def test_poll_strict_with_no_auth_device_with_no_auth(async_client, test_data, monkeypatch):
+    device = test_data["device_no_authentication"]
+    monkeypatch.setattr(config.device_auth, "enable", True)
+    monkeypatch.setattr(config.device_auth, "mode", DeviceAuthMode.STRICT)
 
-    @pytest_asyncio.fixture(scope="class")
-    async def device_auth_async_client(self, device_auth_test_app):
-        async with AsyncClient(
-            transport=ASGITransport(app=device_auth_test_app), base_url="http://test", follow_redirects=True
-        ) as client:
-            login_data = {"username": "admin@goosebit.local", "password": "admin"}
-            response = await client.post("/login", data=login_data, follow_redirects=True)
-            assert response.status_code == 200
+    response = await async_client.get(f"/ddi/controller/v1/{device.uuid}")
+    assert response.status_code == 401
 
-            data = response.json()
-            client.cookies.set("session_id", data["access_token"])
 
-            yield client
+@pytest.mark.asyncio
+async def test_poll_strict_with_no_auth_device_with_auth(async_client, test_data, monkeypatch):
+    device = test_data["device_authentication"]
+    monkeypatch.setattr(config.device_auth, "enable", True)
+    monkeypatch.setattr(config.device_auth, "mode", DeviceAuthMode.STRICT)
 
-    @pytest_asyncio.fixture(scope="class")
-    async def device_auth_test_app(self):
-        async with RegisterTortoise(
-            app=app,
-            config=TORTOISE_CONF,
-        ):
+    response = await async_client.get(f"/ddi/controller/v1/{device.uuid}")
+    assert response.status_code == 401
 
-            @app.middleware("http")
-            async def attach_config(request: Request, call_next):
-                request.scope["config"] = self.config
-                return await call_next(request)
 
-            yield app
+@pytest.mark.asyncio
+async def test_poll_strict_with_auth_device_with_auth(async_client, test_data, monkeypatch):
+    device = test_data["device_authentication"]
+    monkeypatch.setattr(config.device_auth, "enable", True)
+    monkeypatch.setattr(config.device_auth, "mode", DeviceAuthMode.STRICT)
 
-    async def test_poll_strict_with_no_auth_device_with_no_auth(
-        self, device_auth_test_app, device_auth_async_client, test_data
-    ):
-        device = test_data["device_no_authentication"]
-        self.config.device_auth.enable = True
-        self.config.device_auth.mode = DeviceAuthMode.STRICT
+    response = await async_client.get(
+        f"/ddi/controller/v1/{device.uuid}", headers={"Authorization": f"TargetToken {device.auth_token}"}
+    )
+    assert response.status_code == 200
 
-        response = await device_auth_async_client.get(f"/ddi/controller/v1/{device.uuid}")
-        assert response.status_code == 401
 
-    async def test_poll_strict_with_no_auth_device_with_auth(
-        self, device_auth_test_app, device_auth_async_client, test_data
-    ):
-        device = test_data["device_authentication"]
-        self.config.device_auth.enable = True
-        self.config.device_auth.mode = DeviceAuthMode.STRICT
+@pytest.mark.asyncio
+async def test_poll_lax_with_no_auth_device_with_no_auth(async_client, test_data, monkeypatch):
+    device = test_data["device_no_authentication"]
+    monkeypatch.setattr(config.device_auth, "enable", True)
+    monkeypatch.setattr(config.device_auth, "mode", DeviceAuthMode.LAX)
 
-        response = await device_auth_async_client.get(f"/ddi/controller/v1/{device.uuid}")
-        assert response.status_code == 401
+    response = await async_client.get(f"/ddi/controller/v1/{device.uuid}")
+    assert response.status_code == 200
 
-    async def test_poll_strict_with_auth_device_with_auth(
-        self, device_auth_test_app, device_auth_async_client, test_data
-    ):
-        device = test_data["device_authentication"]
-        self.config.device_auth.enable = True
-        self.config.device_auth.mode = DeviceAuthMode.STRICT
 
-        response = await device_auth_async_client.get(
-            f"/ddi/controller/v1/{device.uuid}", headers={"Authorization": f"TargetToken {device.auth_token}"}
-        )
-        assert response.status_code == 200
+@pytest.mark.asyncio
+async def test_poll_lax_with_no_auth_device_with_auth(async_client, test_data, monkeypatch):
+    device = test_data["device_authentication"]
+    monkeypatch.setattr(config.device_auth, "enable", True)
+    monkeypatch.setattr(config.device_auth, "mode", DeviceAuthMode.LAX)
 
-    async def test_poll_lax_with_no_auth_device_with_no_auth(
-        self, device_auth_test_app, device_auth_async_client, test_data
-    ):
-        device = test_data["device_no_authentication"]
-        self.config.device_auth.enable = True
-        self.config.device_auth.mode = DeviceAuthMode.LAX
+    response = await async_client.get(f"/ddi/controller/v1/{device.uuid}")
+    assert response.status_code == 401
 
-        response = await device_auth_async_client.get(f"/ddi/controller/v1/{device.uuid}")
-        assert response.status_code == 200
 
-    async def test_poll_lax_with_no_auth_device_with_auth(
-        self, device_auth_test_app, device_auth_async_client, test_data
-    ):
-        device = test_data["device_authentication"]
-        self.config.device_auth.enable = True
-        self.config.device_auth.mode = DeviceAuthMode.LAX
+@pytest.mark.asyncio
+async def test_poll_lax_with_auth_device_with_auth(async_client, test_data, monkeypatch):
+    device = test_data["device_authentication"]
+    monkeypatch.setattr(config.device_auth, "enable", True)
+    monkeypatch.setattr(config.device_auth, "mode", DeviceAuthMode.LAX)
 
-        response = await device_auth_async_client.get(f"/ddi/controller/v1/{device.uuid}")
-        assert response.status_code == 401
+    response = await async_client.get(
+        f"/ddi/controller/v1/{device.uuid}", headers={"Authorization": f"TargetToken {device.auth_token}"}
+    )
+    assert response.status_code == 200
 
-    async def test_poll_lax_with_auth_device_with_auth(self, device_auth_test_app, device_auth_async_client, test_data):
-        device = test_data["device_authentication"]
-        self.config.device_auth.enable = True
-        self.config.device_auth.mode = DeviceAuthMode.LAX
 
-        response = await device_auth_async_client.get(
-            f"/ddi/controller/v1/{device.uuid}", headers={"Authorization": f"TargetToken {device.auth_token}"}
-        )
-        assert response.status_code == 200
+@pytest.mark.asyncio
+async def test_poll_setup_with_no_auth(async_client, test_data, monkeypatch):
+    device = test_data["device_no_authentication"]
+    monkeypatch.setattr(config.device_auth, "enable", True)
+    monkeypatch.setattr(config.device_auth, "mode", DeviceAuthMode.SETUP)
 
-    async def test_poll_setup_with_no_auth(self, device_auth_test_app, device_auth_async_client, test_data):
-        device = test_data["device_no_authentication"]
-        self.config.device_auth.enable = True
-        self.config.device_auth.mode = DeviceAuthMode.SETUP
+    response = await async_client.get(f"/ddi/controller/v1/{device.uuid}")
+    assert response.status_code == 200
 
-        response = await device_auth_async_client.get(f"/ddi/controller/v1/{device.uuid}")
-        assert response.status_code == 200
+    # device should not have changed
+    device_api = await _api_device_get(async_client, device.uuid)
+    assert device_api["auth_token"] is None
 
-        # device should not have changed
-        device_api = await _api_device_get(device_auth_async_client, device.uuid)
-        assert device_api["auth_token"] is None
 
-    async def test_poll_setup_with_auth_add_device_auth(
-        self, device_auth_test_app, device_auth_async_client, test_data
-    ):
-        device = test_data["device_no_authentication"]
-        self.config.device_auth.enable = True
-        self.config.device_auth.mode = DeviceAuthMode.SETUP
+@pytest.mark.asyncio
+async def test_poll_setup_with_auth_add_device_auth(async_client, test_data, monkeypatch):
+    device = test_data["device_no_authentication"]
+    monkeypatch.setattr(config.device_auth, "enable", True)
+    monkeypatch.setattr(config.device_auth, "mode", DeviceAuthMode.SETUP)
 
-        response = await device_auth_async_client.get(f"/ddi/controller/v1/{device.uuid}")
-        assert response.status_code == 200
+    response = await async_client.get(f"/ddi/controller/v1/{device.uuid}")
+    assert response.status_code == 200
 
-        token = "testing123"
-        await device_auth_async_client.get(
-            f"/ddi/controller/v1/{device.uuid}", headers={"Authorization": f"TargetToken {token}"}
-        )
+    token = "testing123"
+    await async_client.get(f"/ddi/controller/v1/{device.uuid}", headers={"Authorization": f"TargetToken {token}"})
 
-        device_api = await _api_device_get(device_auth_async_client, device.uuid)
-        assert device_api["auth_token"] == token
+    device_api = await _api_device_get(async_client, device.uuid)
+    assert device_api["auth_token"] == token
 
-        await _api_device_update(device_auth_async_client, device, "auth_token", None)
+    await _api_device_update(async_client, device, "auth_token", None)
 
-    async def test_poll_setup_with_auth_update_device_auth(
-        self, device_auth_test_app, device_auth_async_client, test_data
-    ):
-        device = test_data["device_authentication"]
-        old_token = device.auth_token
 
-        self.config.device_auth.enable = True
-        self.config.device_auth.mode = DeviceAuthMode.SETUP
+@pytest.mark.asyncio
+async def test_poll_setup_with_auth_update_device_auth(async_client, test_data, monkeypatch):
+    device = test_data["device_authentication"]
+    old_token = device.auth_token
 
-        response = await device_auth_async_client.get(f"/ddi/controller/v1/{device.uuid}")
-        assert response.status_code == 200
+    monkeypatch.setattr(config.device_auth, "enable", True)
+    monkeypatch.setattr(config.device_auth, "mode", DeviceAuthMode.SETUP)
 
-        token = "testing123"
-        await device_auth_async_client.get(
-            f"/ddi/controller/v1/{device.uuid}", headers={"Authorization": f"TargetToken {token}"}
-        )
+    response = await async_client.get(f"/ddi/controller/v1/{device.uuid}")
+    assert response.status_code == 200
 
-        device_api = await _api_device_get(device_auth_async_client, device.uuid)
-        assert device_api["auth_token"] == token
+    token = "testing123"
+    await async_client.get(f"/ddi/controller/v1/{device.uuid}", headers={"Authorization": f"TargetToken {token}"})
 
-        await _api_device_update(device_auth_async_client, device, "auth_token", old_token)
+    device_api = await _api_device_get(async_client, device.uuid)
+    assert device_api["auth_token"] == token
 
-    async def test_poll_setup_with_no_auth_no_change(self, device_auth_test_app, device_auth_async_client, test_data):
-        device = test_data["device_authentication"]
+    await _api_device_update(async_client, device, "auth_token", old_token)
 
-        self.config.device_auth.enable = True
-        self.config.device_auth.mode = DeviceAuthMode.SETUP
 
-        response = await device_auth_async_client.get(f"/ddi/controller/v1/{device.uuid}")
-        assert response.status_code == 200
+@pytest.mark.asyncio
+async def test_poll_setup_with_no_auth_no_change(async_client, test_data, monkeypatch):
+    device = test_data["device_authentication"]
 
-        await device_auth_async_client.get(f"/ddi/controller/v1/{device.uuid}")
+    monkeypatch.setattr(config.device_auth, "enable", True)
+    monkeypatch.setattr(config.device_auth, "mode", DeviceAuthMode.SETUP)
 
-        device_api = await _api_device_get(device_auth_async_client, device.uuid)
-        assert device_api["auth_token"] == device.auth_token
+    response = await async_client.get(f"/ddi/controller/v1/{device.uuid}")
+    assert response.status_code == 200
+
+    await async_client.get(f"/ddi/controller/v1/{device.uuid}")
+
+    device_api = await _api_device_get(async_client, device.uuid)
+    assert device_api["auth_token"] == device.auth_token
