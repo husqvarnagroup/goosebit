@@ -154,3 +154,26 @@ The structure of gooseBit is as follows:
 -   `settings`: Settings loader and handler.
 -   `telemetry`: Telemetry data handlers.
 -   `routes`: Routes for a giving endpoint, including the router.
+
+### Load Testing (Locust)
+
+1. Setup local postgres instance, create user and database
+2. Install dependencies
+    ```bash
+    pip install --no-cache-dir gunicorn
+    poetry install --extras "postgresql"
+    ```
+3. Initialize/update schema
+    ```bash
+    GOOSEBIT_DB_URI=postgres://goosebit:@localhost:5432/goosebit poetry run aerich upgrade
+    ```
+4. Start goosebit
+   ```bash
+    GOOSEBIT_DB_URI=postgres://goosebit:@localhost:5432/goosebit?maxsize=20 gunicorn --workers=1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:60053 goosebit:app </dev/null
+   ```
+5. Start locust
+    ```bash
+    poetry run locust  --processes 8
+    ```
+
+FATAL: sorry, too many clients already
