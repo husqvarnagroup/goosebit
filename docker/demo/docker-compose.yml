@@ -49,14 +49,13 @@ services:
 
   device1:
     container_name: goosebit-demo-device1
-    image: goosebit-demo-device
     build: device
     environment:
       DEVICE_ID: device1
     network_mode: host
 
-  device2:
-    container_name: goosebit-demo-device2
-    image: goosebit-demo-device
-    environment:
-      DEVICE_ID: device2
+  rauc-device1:
+    container_name: goosebit-demo-rauc-device1
+    build: rauc-device
+    privileged: true
+    network_mode: host

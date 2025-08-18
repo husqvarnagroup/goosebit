@@ -1,0 +1,6 @@
+[update]
+compatible=rauc-device-1.0b
+version=0.1.0
+
+[image.app]
+filename=app.tar
