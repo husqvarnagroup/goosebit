@@ -53,6 +53,7 @@ services:
     build: device
     environment:
       DEVICE_ID: device1
+    network_mode: host
 
   device2:
     container_name: goosebit-demo-device2
