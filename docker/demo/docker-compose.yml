@@ -54,8 +54,8 @@ services:
       DEVICE_ID: swupdate-device
     network_mode: host
 
-  rauc-device1:
-    container_name: goosebit-demo-rauc-device1
+  rauc-device:
+    container_name: goosebit-demo-rauc-device
     build: rauc-device
     privileged: true
     network_mode: host
