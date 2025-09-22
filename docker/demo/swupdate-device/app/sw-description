@@ -1,0 +1,27 @@
+software =
+{
+    version = "1.0.0";
+    description = "Update Python script";
+    reboot = False;
+    hardware-compatibility =
+    [
+        "0.1.0",
+        "1.0.0"
+    ];
+    files =
+    (
+        {
+            filename = "myscript.py";
+            path = "/usr/local/bin/myscript.py";
+            sha256 = "54aca2efd40e46e23ee1a5af77b868265671f5a918057def737a52a8d77f02d4";
+        }
+    );
+    scripts =
+    (
+        {
+            filename = "postinstall.sh";
+            type = "shellscript";
+            sha256 = "014e902a70d503a30c705081c592af528fee55641628df192bc9c6042d241d36";
+        }
+    );
+};
