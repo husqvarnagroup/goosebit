@@ -47,11 +47,11 @@ services:
     depends_on:
       - goosebit
 
-  device1:
-    container_name: goosebit-demo-device1
+  swupdate-device:
+    container_name: goosebit-demo-swupate-device
     build: device
     environment:
-      DEVICE_ID: device1
+      DEVICE_ID: swupdate-device
     network_mode: host
 
   rauc-device1:
