@@ -49,7 +49,7 @@ services:
 
   swupdate-device:
     container_name: goosebit-demo-swupate-device
-    build: device
+    build: swupdate-device
     environment:
       DEVICE_ID: swupdate-device
     network_mode: host
